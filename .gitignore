@@ -1,0 +1,13 @@
+# macOS / Windows 產生的檔案
+.DS_Store
+Thumbs.db
+
+# 備份的「SD 卡」
+backup/
+
+# 老師在本機開發用的設定（從原始碼建立 image），不給學生
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.pyc

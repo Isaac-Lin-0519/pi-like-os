@@ -1,0 +1,16 @@
+# sim 容器用到的 Python 套件。全部固定版本（包含間接依賴），每次建立 image 的結果都一樣。
+# 要升級時：改這裡的版本號 → 重建 → 測試 → 發布新版。
+
+# 網頁伺服器
+aiohttp==3.14.5
+aiohappyeyeballs==2.7.1
+aiosignal==1.4.0
+attrs==26.1.0
+frozenlist==1.8.0
+idna==3.20
+multidict==7.2.1
+propcache==0.5.4
+yarl==1.25.1
+
+# 打包模擬版 lgpio、spidev 用
+setuptools==84.2.1

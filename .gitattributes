@@ -1,0 +1,5 @@
+# Windows 上 git 預設會把換行改成 CRLF，容器裡的腳本與偽造的硬體檔案會因此壞掉，
+# 所以一律保持 LF；二進位檔案完全不轉換。
+* text=auto eol=lf
+*.bat text eol=crlf
+pi/fake/firmware/** binary

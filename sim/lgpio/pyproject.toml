@@ -1,0 +1,16 @@
+# 模擬版 lgpio 的套件設定
+# 版本號與 PyPI 上真正的 lgpio 相同，pip show lgpio 會看到一樣的版本；
+# pip.conf 讓 lgpio 只從虛擬麵包板伺服器下載，所以不會跟真正的 lgpio 搶版本。
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lgpio"
+version = "0.2.2.0"
+description = "Linux SBC GPIO module（pi-like-os 模擬版：腳位變化會送到虛擬麵包板網頁）"
+requires-python = ">=3.9"
+license = { text = "Unlicense" }
+
+[tool.setuptools]
+py-modules = ["lgpio"]

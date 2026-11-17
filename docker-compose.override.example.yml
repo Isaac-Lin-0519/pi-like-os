@@ -1,0 +1,16 @@
+# ==================================================================
+# 開發用：從原始碼建立 image
+#
+# 使用方法：把這個檔案複製成 docker-compose.override.yml（已經列在 .gitignore）
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#   docker compose up -d --build
+#
+# docker compose 會自動合併 docker-compose.override.yml，
+# 所以 image 改成用 pi/、sim/ 資料夾的原始碼建立，不從 ghcr.io 下載。
+# 沒有這個檔案的電腦會下載 GitHub Actions 建好的 image。
+# ==================================================================
+services:
+  pi:
+    build: ./pi
+  sim:
+    build: ./sim

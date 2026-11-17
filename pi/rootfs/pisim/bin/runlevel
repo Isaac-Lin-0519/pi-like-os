@@ -1,0 +1,5 @@
+#!/bin/sh
+# 假的 runlevel：回報「目前在 runlevel 2」
+# apt 安裝服務（例如 mariadb-server）時，invoke-rc.d 會先查 runlevel 才決定要不要啟動服務。
+# 有了這支程式，裝完 MariaDB 就會像真機一樣自動啟動。
+echo "N 2"

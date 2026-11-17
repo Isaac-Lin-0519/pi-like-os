@@ -1,0 +1,106 @@
+#!/bin/bash
+# ------------------------------------------------------------------
+# 假的 systemctl
+#
+# 這個模擬環境沒有 systemd（Docker 容器通常不跑 systemd），
+# 這支小程式把常用的 systemctl 指令轉成 Debian 傳統的 service / update-rc.d，
+# 並且每次都提醒你實際執行的是哪個指令。
+#
+#   systemctl start   mariadb  →  service mariadb start
+#   systemctl enable  mariadb  →  update-rc.d mariadb enable
+# ------------------------------------------------------------------
+
+note() { echo "（模擬環境沒有 systemd，改用：$*）" >&2; }
+
+usage() {
+    echo "用法：systemctl start|stop|restart|reload|status|enable|disable|is-active|is-enabled <服務名稱>" >&2
+    exit 1
+}
+
+[ $# -ge 1 ] || usage
+cmd=$1
+shift
+
+now=0
+units=()
+for arg in "$@"; do
+    case $arg in
+        --now) now=1 ;;
+        -*) ;;                         # --no-pager、-l 之類的選項直接忽略
+        *) units+=("${arg%.service}") ;;
+    esac
+done
+
+need_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "權限不足，請在前面加 sudo：sudo systemctl $cmd ${units[*]}" >&2
+        exit 1
+    fi
+}
+
+is_enabled() { ls /etc/rc2.d/S??"$1" >/dev/null 2>&1; }
+
+rc=0
+case $cmd in
+    start|stop|restart|reload|force-reload)
+        [ ${#units[@]} -gt 0 ] || usage
+        need_root
+        for u in "${units[@]}"; do
+            note "service $u $cmd"
+            service "$u" "$cmd" || rc=$?
+        done
+        ;;
+    try-restart|condrestart|reload-or-restart)
+        need_root
+        for u in "${units[@]}"; do
+            if service "$u" status >/dev/null 2>&1; then
+                note "service $u restart"
+                service "$u" restart || rc=$?
+            fi
+        done
+        ;;
+    status)
+        [ ${#units[@]} -gt 0 ] || usage
+        for u in "${units[@]}"; do
+            note "service $u status"
+            service "$u" status || rc=3
+        done
+        ;;
+    is-active)
+        for u in "${units[@]}"; do
+            if service "$u" status >/dev/null 2>&1; then echo active; else echo inactive; rc=3; fi
+        done
+        ;;
+    is-enabled)
+        for u in "${units[@]}"; do
+            if is_enabled "$u"; then echo enabled; else echo disabled; rc=1; fi
+        done
+        ;;
+    enable|disable)
+        [ ${#units[@]} -gt 0 ] || usage
+        need_root
+        for u in "${units[@]}"; do
+            note "update-rc.d $u $cmd"
+            update-rc.d "$u" defaults >/dev/null 2>&1
+            update-rc.d "$u" "$cmd" || rc=$?
+            if [ $now -eq 1 ]; then
+                if [ "$cmd" = enable ]; then service "$u" start; else service "$u" stop; fi
+            fi
+        done
+        ;;
+    list-units|list-unit-files)
+        note "service --status-all"
+        service --status-all
+        ;;
+    daemon-reload|daemon-reexec|reset-failed|preset|mask|unmask)
+        # 沒有 systemd 就沒有這些動作要做，直接當作成功
+        ;;
+    reboot|poweroff|halt)
+        exec "/pisim/bin/$cmd"
+        ;;
+    *)
+        echo "模擬環境不支援 systemctl $cmd" >&2
+        rc=1
+        ;;
+esac
+exit $rc

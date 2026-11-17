@@ -1,0 +1,26 @@
+#!/bin/bash
+# ------------------------------------------------------------------
+# raspi-config（pi-like-os 模擬版）
+#
+# 真機要用 raspi-config 開啟 SPI（Interface Options → SPI），MCP3008 才讀得到。
+# 模擬環境的 SPI 一直都是開啟的，所以這裡只說明、不需要設定。
+# 也支援腳本常用的 nonint 寫法：raspi-config nonint get_spi（0 代表已開啟）。
+# ------------------------------------------------------------------
+if [ "$1" = "nonint" ]; then
+    case "$2" in
+        get_spi) echo 0 ;;
+        do_spi)  echo "（模擬環境）SPI 已經是開啟的。" ;;
+        get_*)   echo 1 ;;
+        *)       echo "（模擬環境）raspi-config nonint $2：模擬環境不支援這個設定，已略過。" ;;
+    esac
+    exit 0
+fi
+
+cat <<'MSG'
+pi-like-os 模擬環境：raspi-config
+
+  SPI（MCP3008 用）：已經開啟，不需要設定。
+  真機上的步驟是：sudo raspi-config → 3 Interface Options → I4 SPI → Yes
+
+  其他設定（Wi-Fi、密碼、地區等）在模擬環境裡沒有作用。
+MSG

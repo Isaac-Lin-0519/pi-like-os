@@ -1,0 +1,61 @@
+#!/usr/bin/python3
+"""
+假的 pinout 指令
+
+真機上的 pinout 來自 gpiozero，會讀取板子的 revision 再畫出板子圖與 40 pin 對照表。
+這裡的輸出是在建立 image 時，用真正的 gpiozero 2.x 執行
+`pinout -r b03115`（Raspberry Pi 4 Model B rev 1.5，2GB）預先產生的，
+所以內容跟真機一模一樣，而且不需要先 pip install gpiozero。
+"""
+
+import argparse
+import os
+import sys
+
+SHARE = "/pisim/share"
+REVISION = 0xB03115
+
+
+def show(name):
+    with open(os.path.join(SHARE, name), encoding="utf-8") as f:
+        sys.stdout.write(f.read())
+
+
+def term_supports_color():
+    # 與 gpiozero 的判斷方式相同：輸出到終端機時才上色
+    try:
+        return os.isatty(sys.stdout.fileno())
+    except (AttributeError, OSError, ValueError):
+        return False
+
+
+def main():
+    # 參數定義與 gpiozero 的 pinout 相同，錯誤訊息的格式也會一樣
+    parser = argparse.ArgumentParser(prog="pinout", add_help=False)
+    parser.add_argument("-h", "--help", action="store_true")
+    parser.add_argument("-r", "--revision", dest="revision",
+                        type=lambda s: int(s, base=16), default=None)
+    parser.add_argument("-c", "--color", action="store_true", default=None)
+    parser.add_argument("-m", "--monochrome", dest="color", action="store_false")
+    parser.add_argument("-x", "--xyz", dest="xyz", action="store_true")
+    args = parser.parse_args()
+
+    if args.help:
+        show("pinout.help")
+        return 0
+    if args.xyz:
+        # 容器裡沒有瀏覽器，直接印出網址
+        print("https://pinout.xyz")
+        return 0
+    if args.revision is not None and args.revision != REVISION:
+        sys.stderr.write(
+            "（模擬環境只提供 Raspberry Pi 4 Model B rev 1.5（b03115）的腳位圖）\n")
+        return 1
+
+    color = term_supports_color() if args.color is None else args.color
+    show("pinout.color" if color else "pinout.mono")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,42 @@
+#!/bin/bash
+# ------------------------------------------------------------------
+# 假的 reboot / poweroff / halt / shutdown
+#
+# 通知開機程式（/pisim/init.sh）停止服務並結束：
+#   reboot   → 容器結束後由 docker 自動重新啟動（就像重開機）
+#   poweroff → 容器停止；要再開機請在電腦上執行 docker compose start pi
+#             （或再執行一次 docker compose up）
+# ------------------------------------------------------------------
+
+name=$(basename "$0")
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "權限不足，請在前面加 sudo：sudo $name $*" >&2
+    exit 1
+fi
+
+action=reboot
+case $name in
+    poweroff|halt) action=poweroff ;;
+    shutdown)
+        action=poweroff
+        for arg in "$@"; do
+            [ "$arg" = "-r" ] && action=reboot
+            [ "$arg" = "-c" ] && { echo "沒有排程中的關機。" >&2; exit 0; }
+        done
+        ;;
+esac
+
+pid=$(cat /run/pisim-init.pid 2>/dev/null)
+if [ -z "$pid" ]; then
+    echo "找不到開機程式，無法$([ $action = reboot ] && echo 重開機 || echo 關機)。" >&2
+    exit 1
+fi
+
+if [ $action = reboot ]; then
+    echo "正在重新開機……ssh 連線會中斷，約 10 秒後再重新連線。"
+    kill -USR1 "$pid"
+else
+    echo "正在關機……要再開機請在電腦上執行：docker compose start pi"
+    kill -TERM "$pid"
+fi

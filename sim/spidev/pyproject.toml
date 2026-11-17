@@ -1,0 +1,16 @@
+# 模擬版 spidev 的套件設定
+# 跟 lgpio 一樣由虛擬麵包板伺服器提供：pip install spidev 會裝到這個版本，
+# 回到真正的樹莓派時，pip 裝到的就是真正的 spidev。
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spidev"
+version = "3.7"
+description = "Python bindings for Linux SPI access through spidev（pi-like-os 模擬版：資料送到虛擬麵包板上的 SPI 晶片）"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[tool.setuptools]
+py-modules = ["spidev"]

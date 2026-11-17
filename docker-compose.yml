@@ -1,0 +1,71 @@
+# ==================================================================
+# pi-like-os：樹莓派居家練習環境
+#
+#   docker compose up -d       啟動（第一次會先下載 image，需要幾分鐘）
+#   ssh pi@localhost -p 2222   連進「樹莓派」（密碼 raspberry）
+#   http://localhost:8080      虛擬麵包板網頁
+#
+# image 由 GitHub Actions 建立（amd64 + arm64），Windows 與 Mac 會自動拿到對應的版本。
+# image 一律寫固定的版本號（不用 latest）。發布新版用 scripts/release.sh 改版本號。
+# 開發者要從原始碼建立 image：把 docker-compose.override.example.yml 複製成
+# docker-compose.override.yml，docker compose 會自動合併它。
+#
+# 所有 port 都只開放給本機（127.0.0.1），同一個網路裡的其他電腦連不進來。
+# ==================================================================
+name: pi-like-os
+
+services:
+  # ----------------------------------------------------------------
+  # 「樹莓派」：Debian trixie，偽裝成 Raspberry Pi 4 Model B rev 1.5
+  # ----------------------------------------------------------------
+  pi:
+    image: ghcr.io/isaac-lin-0519/pi-like-os/pi:0.1.0
+    hostname: raspberrypi
+    restart: on-failure           # sudo reboot 會讓容器以代碼 1 結束，docker 再自動開機
+    stop_grace_period: 30s        # 關機時給 MariaDB 足夠時間正常關閉
+    security_opt:
+      # Docker 預設會把 /sys/firmware 遮住，必須解除才能偽造 /proc/device-tree/model
+      - systempaths=unconfined
+    ports:
+      - "127.0.0.1:2222:22"       # ssh
+      - "127.0.0.1:8081:80"       # 你自己裝的 apache2 + phpMyAdmin：http://localhost:8081/phpmyadmin
+      - "127.0.0.1:8888:8888"     # 你自己裝的 Jupyter
+      - "127.0.0.1:7860:7860"     # 你自己執行的 Gradio
+    volumes:
+      # 偽造樹莓派的硬體資訊（gpiozero、pinout 會讀這些檔案）
+      - ./pi/fake/cpuinfo:/proc/cpuinfo:ro
+      - ./pi/fake/firmware:/sys/firmware:ro
+      # 「SD 卡」：系統裡所有會被改動的目錄都存在 volume 裡，重開機、docker compose down 都不會消失
+      # 想要「重灌」才用 docker compose down -v（會刪掉你裝的所有東西！）
+      - sd-etc:/etc
+      - sd-usr:/usr
+      - sd-var:/var
+      - sd-home:/home
+      - sd-root:/root
+      - sd-opt:/opt
+      - sd-srv:/srv
+      # 與電腦共用的資料夾：電腦上的 shared/ ＝ 容器裡的 /home/pi/shared
+      - ./shared:/home/pi/shared
+    depends_on:
+      - sim
+
+  # ----------------------------------------------------------------
+  # 虛擬麵包板伺服器：網頁、腳位橋接、pip 套件來源（模擬版 lgpio）
+  # ----------------------------------------------------------------
+  sim:
+    image: ghcr.io/isaac-lin-0519/pi-like-os/sim:0.1.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8000"     # 虛擬麵包板網頁
+    volumes:
+      - sim-data:/data            # 麵包板上的電路
+
+volumes:
+  sd-etc:
+  sd-usr:
+  sd-var:
+  sd-home:
+  sd-root:
+  sd-opt:
+  sd-srv:
+  sim-data:

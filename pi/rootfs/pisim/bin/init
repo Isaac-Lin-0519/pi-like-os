@@ -1,0 +1,15 @@
+#!/bin/sh
+# 假的 /sbin/init
+#
+# 真機的 /sbin/init 是 systemd；模擬環境的開機流程由 /pisim/init.sh 負責。
+# 這個檔案存在的另一個用途：apt 安裝服務時，invoke-rc.d 會檢查 /sbin/init，
+# 有這個檔案才會在安裝後自動啟動服務（例如 MariaDB），跟真機一樣。
+case "$1" in
+    0) exec /pisim/bin/poweroff ;;
+    6) exec /pisim/bin/reboot ;;
+    *)
+        echo "模擬環境的開機流程由 /pisim/init.sh 負責。" >&2
+        echo "要關機請用 sudo poweroff（或 init 0），重開機請用 sudo reboot（或 init 6）。" >&2
+        exit 1
+        ;;
+esac
