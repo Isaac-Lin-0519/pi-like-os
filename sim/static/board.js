@@ -8,6 +8,7 @@
 import {
   BB_COLS, BB_ROWS, HEADER, LED_COLORS, MCP3008_PINS, RGB_CHANNELS, formatOhms, headerLabel, railHasHole,
 } from "./circuit.js";
+import { t } from "./i18n.js";
 
 export const P = 20;                      // 孔距
 export const MM = P / 2.54;               // 1mm 的長度
@@ -68,51 +69,60 @@ export function describePoint(id) {
   if (!p) return "";
   if (p.kind === "header") {
     const name = HEADER[p.phys];
-    return typeof name === "number" ? `GPIO${name}（實體腳位 ${p.phys}）` : `${name}（實體腳位 ${p.phys}）`;
+    return t("point.header", { name: typeof name === "number" ? `GPIO${name}` : name, phys: p.phys });
   }
   if (p.kind === "rail") {
-    const side = p.rail.startsWith("top") ? "上方" : "下方";
-    return `${side}電源軌 ${p.rail.endsWith("+") ? "＋" : "－"}（整條相通）`;
+    return t("point.rail", {
+      side: t(p.rail.startsWith("top") ? "point.railTop" : "point.railBottom"),
+      sign: t(p.rail.endsWith("+") ? "point.plus" : "point.minus"),
+    });
   }
-  return `麵包板 ${p.row}${p.col + 1}（第 ${p.col + 1} 行 ${"abcde".includes(p.row) ? "a～e" : "f～j"} 這 5 個孔相通）`;
+  return t("point.hole", { id: `${p.row}${p.col + 1}`, col: p.col + 1, group: "abcde".includes(p.row) ? "a–e" : "f–j" });
 }
 
 // ==================================================================
 // 元件定義
-//   pins：以「孔距」為單位、相對於第 0 支腳的位置（未旋轉）
+//   pins：以「孔距」為單位、相對於第 0 支腳的位置（未旋轉）；name 是 i18n.js 的 key
 // ==================================================================
 export const PART_TYPES = {
   led: {
-    name: "LED",
-    pins: [{ dx: 0, dy: 0, name: "長腳（＋，陽極）" }, { dx: 1, dy: 0, name: "短腳（－，陰極）" }],
+    name: "part.led",
+    pins: [{ dx: 0, dy: 0, name: "leg.ledLong" }, { dx: 1, dy: 0, name: "leg.ledShort" }],
   },
   resistor: {
-    name: "電阻",
-    pins: [{ dx: 0, dy: 0, name: "腳 1" }, { dx: 4, dy: 0, name: "腳 2" }],
+    name: "part.resistor",
+    pins: [{ dx: 0, dy: 0, name: "leg.n", args: { n: 1 } }, { dx: 4, dy: 0, name: "leg.n", args: { n: 2 } }],
   },
   button: {
-    name: "按鈕",
+    name: "part.button",
     // 0–1 永遠相通、2–3 永遠相通（相距較遠的兩支腳），按下時左右兩組相通
-    pins: [{ dx: 0, dy: 0, name: "左上" }, { dx: 0, dy: 3, name: "左下" },
-           { dx: 2, dy: 0, name: "右上" }, { dx: 2, dy: 3, name: "右下" }],
+    pins: [{ dx: 0, dy: 0, name: "leg.topLeft" }, { dx: 0, dy: 3, name: "leg.bottomLeft" },
+           { dx: 2, dy: 0, name: "leg.topRight" }, { dx: 2, dy: 3, name: "leg.bottomRight" }],
   },
   rgbled: {
-    name: "RGB LED",
-    pins: [{ dx: 0, dy: 0, name: "紅（R）" }, { dx: 1, dy: 0, name: "共同腳（最長的腳）" },
-           { dx: 2, dy: 0, name: "綠（G）" }, { dx: 3, dy: 0, name: "藍（B）" }],
+    name: "part.rgbled",
+    pins: [{ dx: 0, dy: 0, name: "leg.rgbR" }, { dx: 1, dy: 0, name: "leg.rgbCommon" },
+           { dx: 2, dy: 0, name: "leg.rgbG" }, { dx: 3, dy: 0, name: "leg.rgbB" }],
   },
   pot: {
-    name: "可變電阻",
-    pins: [{ dx: 0, dy: 0, name: "腳 1" }, { dx: 2, dy: 0, name: "中間腳（滑動端）" }, { dx: 4, dy: 0, name: "腳 3" }],
+    name: "part.pot",
+    pins: [{ dx: 0, dy: 0, name: "leg.n", args: { n: 1 } }, { dx: 2, dy: 0, name: "leg.wiper" },
+           { dx: 4, dy: 0, name: "leg.n", args: { n: 3 } }],
   },
   mcp3008: {
-    name: "MCP3008",
+    name: "part.mcp3008",
     // 缺口朝左：第 1～8 腳在下排（左到右），第 9～16 腳在上排（右到左）
     pins: MCP3008_PINS.map((name, i) => (i < 8
-      ? { dx: i, dy: 3, name: `第 ${i + 1} 腳 ${name}` }
-      : { dx: 15 - i, dy: 0, name: `第 ${i + 1} 腳 ${name}` })),
+      ? { dx: i, dy: 3, name: "leg.chip", args: { n: i + 1, name } }
+      : { dx: 15 - i, dy: 0, name: "leg.chip", args: { n: i + 1, name } })),
   },
 };
+
+// 元件第 i 支腳的名稱（目前語言）
+export function pinLabel(type, i) {
+  const pin = PART_TYPES[type]?.pins[i];
+  return pin ? t(pin.name, pin.args) : "";
+}
 
 // 常見材料包裡的電阻（色碼：100Ω 棕黑棕、220Ω 紅紅棕、330Ω 橙橙棕、1kΩ 棕黑紅、
 // 10kΩ 棕黑橙、47kΩ 黃紫橙、100kΩ 棕黑黃、1MΩ 棕黑綠）
@@ -346,8 +356,8 @@ function drawRgbLed(part, sim) {
     s += `<circle cx="${x}" cy="0" r="3" fill="#9aa0a6"/>`;
   }
   const com = part.common === "anode" ? "+" : "−";
-  ["R", com, "G", "B"].forEach((t, i) => {
-    s += `<text x="${i * P}" y="14" font-size="8" font-weight="700" text-anchor="middle" fill="${["#d7263d", "#555", "#1f9d55", "#2563eb"][i]}">${t}</text>`;
+  ["R", com, "G", "B"].forEach((label, i) => {
+    s += `<text x="${i * P}" y="14" font-size="8" font-weight="700" text-anchor="middle" fill="${["#d7263d", "#555", "#1f9d55", "#2563eb"][i]}">${label}</text>`;
   });
   let mix = [0, 0, 0], total = 0;
   for (const ch of RGB_CHANNELS) {

@@ -1,6 +1,8 @@
 // 電路求解器的測試：node sim/tests/circuit.test.mjs
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { simulate } from "../static/circuit.js";
+import { setLang, dictKeys, LANGS } from "../static/i18n.js";
 
 // GPIO18 = 實體腳位 12；GND = 實體腳位 6；3V3 = 1；5V = 2；GPIO17 = 11
 const out18 = (level, pwm = null) => ({ 18: { mode: "output", level, pull: "none", pwm } });
@@ -228,6 +230,53 @@ const tests = {
     const spi = { mode: "spi", level: null, pull: null, pwm: null };
     const s = simulate(meterCircuit(), { 8: spi, 9: spi, 10: spi, 11: spi });
     assert.ok(!s.issues.some((i) => /浮接/.test(i.text)));
+  },
+
+  // ---- 介面語言 ----
+  "兩種語言的字串 key 完全相同"() {
+    const [zh, en] = LANGS.map((l) => new Set(dictKeys(l)));
+    assert.deepEqual([...zh].filter((k) => !en.has(k)), [], "英文少了這些 key");
+    assert.deepEqual([...en].filter((k) => !zh.has(k)), [], "中文少了這些 key");
+  },
+  "程式裡用到的每個 key 都有翻譯"() {
+    const keys = new Set(dictKeys("zh"));
+    const used = new Set();
+    for (const f of ["app.js", "board.js", "circuit.js"]) {
+      const src = readFileSync(new URL(`../static/${f}`, import.meta.url), "utf8");
+      for (const m of src.matchAll(/\bt\("([\w.]+)"/g)) used.add(m[1]);
+      for (const m of src.matchAll(/name: "((?:leg|part)\.[\w.]+)"/g)) used.add(m[1]);
+      for (const m of src.matchAll(/"(m\.target\w+)"/g)) used.add(m[1]);
+    }
+    const html = readFileSync(new URL("../static/index.html", import.meta.url), "utf8");
+    for (const m of html.matchAll(/data-i18n(?:-html|-title|-aria)?="([\w.]+)"/g)) used.add(m[1]);
+    assert.ok(used.size > 100, `只找到 ${used.size} 個 key`);
+    assert.deepEqual([...used].filter((k) => !keys.has(k)), []);
+  },
+  "英文：LED、電阻、MCP3008 的提示"() {
+    setLang("en");
+    try {
+      const ok = simulate(classic(220), out18(1)).issues.find((i) => i.part === "led1");
+      assert.match(ok.text, /^LED \(red\) is on: simulated current .*Estimate: \(3\.3V − 2V\) ÷ 220Ω ≈ 5\.9mA\.$/);
+      assert.match(simulate(classic(220, { reversed: true }), out18(1)).issues.find((i) => i.part === "led1").text, /is reversed/);
+      const m = simulate(meterCircuit(), {});
+      assert.ok(m.issues.some((i) => i.level === "ok" && /CH0 0\.8\dV → 256 \(value ≈ 0\.25\)/.test(i.text)));
+      const c = meterCircuit();
+      c.wires.find((w) => w.id === "dout").b = "hdr:19";
+      c.wires.find((w) => w.id === "din").b = "hdr:21";
+      assert.ok(simulate(c, {}).issues.some((i) => /DOUT and DIN are swapped/.test(i.text)));
+    } finally { setLang("zh"); }
+  },
+  "英文：提示裡沒有中文字"() {
+    setLang("en");
+    try {
+      const short = { wires: [wire("w", "hdr:1", "hdr:6")], parts: [] };
+      const cases = [
+        simulate(classic(220), out18(1)), simulate(classic(1e6), out18(1)), simulate(classic(220, { reversed: true }), out18(1)),
+        simulate(meterCircuit(), {}), simulate(rgbCircuit("anode"), { 17: { mode: "output", level: 1, pull: "none", pwm: null } }),
+        simulate(short, {}),
+      ];
+      for (const s of cases) for (const i of s.issues) assert.doesNotMatch(i.text, /[\u4e00-\u9fff]/, i.text);
+    } finally { setLang("zh"); }
   },
 };
 

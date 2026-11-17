@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>虛擬麵包板</title>
+<title data-i18n="page.title">虛擬麵包板</title>
 <style>
   :root {
     --bg: #f5f4ef;
@@ -125,44 +125,45 @@
 </head>
 <body>
 <header>
-  <h1>虛擬麵包板</h1>
-  <span id="status" class="status bad">連線中…</span>
+  <h1 data-i18n="page.title">虛擬麵包板</h1>
+  <span id="status" class="status bad" data-i18n="status.connecting">連線中…</span>
   <span class="spacer"></span>
-  <select id="example-select" title="載入範例電路">
-    <option value="">範例電路…</option>
-    <option value="led">LED 閃爍（GPIO18）</option>
-    <option value="meter">三段旋鈕儀表（MCP3008＋可變電阻）</option>
-    <option value="rgb">RGB 三原色混色（按鈕 A／B／C）</option>
+  <select id="example-select" title="載入範例電路" data-i18n-title="example.title">
+    <option value="" data-i18n="example.placeholder">範例電路…</option>
+    <option value="led" data-i18n="example.led">LED 閃爍（GPIO18）</option>
+    <option value="meter" data-i18n="example.meter">三段旋鈕儀表（MCP3008＋可變電阻）</option>
+    <option value="rgb" data-i18n="example.rgb">RGB 三原色混色（按鈕 A／B／C）</option>
   </select>
-  <button id="btn-export" title="把電路存成檔案">匯出</button>
-  <button id="btn-import" title="從檔案載入電路">匯入</button>
-  <button id="btn-clear">清空</button>
+  <button id="btn-export" title="把電路存成檔案" data-i18n="btn.export" data-i18n-title="btn.export.title">匯出</button>
+  <button id="btn-import" title="從檔案載入電路" data-i18n="btn.import" data-i18n-title="btn.import.title">匯入</button>
+  <button id="btn-clear" data-i18n="btn.clear">清空</button>
+  <button id="btn-lang" lang="en" title="Switch to English" data-i18n="lang.switch" data-i18n-title="lang.switchTitle">English</button>
   <input id="file-import" type="file" accept=".json,application/json" hidden>
 </header>
 
 <div class="workspace">
   <aside>
     <div class="card">
-      <h2>元件（拖到麵包板上）</h2>
+      <h2 data-i18n="card.toolbox">元件（拖到麵包板上）</h2>
       <div id="toolbox"></div>
     </div>
     <div class="card">
-      <h2>杜邦線</h2>
+      <h2 data-i18n="card.wire">杜邦線</h2>
       <div id="wire-colors" class="swatches"></div>
-      <p class="help">從排針或孔<b>拖</b>到另一個孔，就是一條線；也可以點起點、再點終點。</p>
+      <p class="help" data-i18n-html="help.wire">從排針或孔<b>拖</b>到另一個孔，就是一條線；也可以點起點、再點終點。</p>
     </div>
     <div class="card">
-      <h2>選取的元件</h2>
+      <h2 data-i18n="card.props">選取的元件</h2>
       <div id="props"></div>
     </div>
   </aside>
 
   <div>
     <div class="canvas-wrap">
-      <svg id="board" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Raspberry Pi 4 與麵包板"></svg>
+      <svg id="board" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Raspberry Pi 4 與麵包板" data-i18n-aria="board.aria"></svg>
       <div id="tip" hidden></div>
     </div>
-    <p class="help">
+    <p class="help" data-i18n-html="help.board">
       滑鼠移到孔上會用綠圈標出所有相通的點。選取後 <kbd>R</kbd> 旋轉、<kbd>Delete</kbd> 刪除、<kbd>Esc</kbd> 取消；按住按鈕＝按下；上下拖曳（或滾輪）轉動可變電阻的旋鈕。
     </p>
   </div>
@@ -170,14 +171,14 @@
 
 <div class="panels">
   <section class="card">
-    <h2>電路提示</h2>
+    <h2 data-i18n="card.hints">電路提示</h2>
     <ul id="hints"></ul>
   </section>
   <section class="card">
-    <h2>執行中的程式</h2>
+    <h2 data-i18n="card.programs">執行中的程式</h2>
     <ul id="programs" class="programs"></ul>
-    <h2>腳位變化紀錄</h2>
-    <div id="log" class="log"><div class="muted">等待程式執行…</div></div>
+    <h2 data-i18n="card.log">腳位變化紀錄</h2>
+    <div id="log" class="log"><div class="muted" data-i18n="log.waiting">等待程式執行…</div></div>
   </section>
 </div>
 

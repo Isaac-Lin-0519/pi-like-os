@@ -19,6 +19,8 @@
 //   杜邦線      理想導線
 // ==================================================================
 
+import { t } from "./i18n.js";
+
 export const V_GPIO = 3.3;
 export const R_GPIO = 30;          // GPIO 輸出內阻（Ω）
 export const R_PULL = 50000;       // 內建上拉／下拉電阻（Ω）
@@ -31,20 +33,21 @@ export const LED_MAX_MA = 20;      // LED 額定電流
 export const V_HIGH = 1.65;        // 輸入腳判斷為高電位的門檻
 export const R_POT_MIN = 1;        // 可變電阻轉到底時殘留的電阻（Ω）
 
-// LED 顏色與順向電壓
+// LED 顏色與順向電壓（顏色名稱用 colorName() 取得目前語言的寫法）
 export const LED_COLORS = {
-  red:    { name: "紅", vf: 2.0, rgb: "#ff2a1f" },
-  yellow: { name: "黃", vf: 2.1, rgb: "#ffd21f" },
-  green:  { name: "綠", vf: 2.2, rgb: "#2fe05a" },
-  blue:   { name: "藍", vf: 3.0, rgb: "#3b8bff" },
-  white:  { name: "白", vf: 3.0, rgb: "#f4f7ff" },
+  red:    { vf: 2.0, rgb: "#ff2a1f" },
+  yellow: { vf: 2.1, rgb: "#ffd21f" },
+  green:  { vf: 2.2, rgb: "#2fe05a" },
+  blue:   { vf: 3.0, rgb: "#3b8bff" },
+  white:  { vf: 3.0, rgb: "#f4f7ff" },
 };
+export const colorName = (color) => t(`color.${color}`);
 
 // RGB LED（4 支腳）：紅、共同腳（最長）、綠、藍
 export const RGB_CHANNELS = [
-  { key: "r", name: "紅", vf: 2.0, pin: 0, rgb: [255, 40, 30] },
-  { key: "g", name: "綠", vf: 3.0, pin: 2, rgb: [40, 230, 80] },
-  { key: "b", name: "藍", vf: 3.0, pin: 3, rgb: [50, 120, 255] },
+  { key: "r", color: "red", vf: 2.0, pin: 0, rgb: [255, 40, 30] },
+  { key: "g", color: "green", vf: 3.0, pin: 2, rgb: [40, 230, 80] },
+  { key: "b", color: "blue", vf: 3.0, pin: 3, rgb: [50, 120, 255] },
 ];
 export const RGB_COMMON_PIN = 1;
 
@@ -54,11 +57,14 @@ export const MCP3008_PINS = [
   "DGND", "CS/SHDN", "DIN", "DOUT", "CLK", "AGND", "VREF", "VDD",
 ];
 // 每支腳要接到哪裡（給提示與滑鼠說明用）
-export const MCP3008_TARGET = {
-  16: "3.3V（實體腳位 1 或 17）", 15: "3.3V（實體腳位 1 或 17）", 14: "GND", 9: "GND",
-  13: "GPIO11／SCLK（實體腳位 23）", 12: "GPIO9／MISO（實體腳位 21）",
-  11: "GPIO10／MOSI（實體腳位 19）", 10: "GPIO8／CE0（實體腳位 24）",
+const MCP3008_TARGET = {
+  16: "m.target3v3", 15: "m.target3v3", 14: "GND", 9: "GND",
+  13: "m.targetSclk", 12: "m.targetMiso", 11: "m.targetMosi", 10: "m.targetCe0",
 };
+export function mcp3008Target(num) {
+  const key = MCP3008_TARGET[num];
+  return !key ? null : key === "GND" ? "GND" : t(key);
+}
 
 // ------------------------------------------------------------------
 // 40 pin 排針（Raspberry Pi 4 Model B）：實體腳位 → 名稱
@@ -221,12 +227,12 @@ export function simulate(circuit, pins = {}) {
 
   // ---- 電源（諾頓等效：電導 G 對地，加上注入電流 I） ----
   const sources = [];   // { kind, net, g, v, gpio?, phys? }
-  if (net3v3 === -1) issues.push({ level: "danger", text: "3V3 直接接到 GND，短路了！這會讓樹莓派當機或損壞。" });
+  if (net3v3 === -1) issues.push({ level: "danger", text: t("c.short3v3") });
   else sources.push({ kind: "3V3", net: net3v3, g: 1 / R_SUPPLY, v: 3.3 });
-  if (net5v === -1) issues.push({ level: "danger", text: "5V 直接接到 GND，短路了！這會讓樹莓派當機或損壞。" });
+  if (net5v === -1) issues.push({ level: "danger", text: t("c.short5v") });
   else sources.push({ kind: "5V", net: net5v, g: 1 / R_SUPPLY, v: 5.0 });
   if (net3v3 !== -1 && net3v3 === net5v) {
-    issues.push({ level: "danger", text: "3V3 和 5V 接在一起，短路了！" });
+    issues.push({ level: "danger", text: t("c.short3v3to5v") });
   }
 
   const gpioPins = [];
@@ -255,14 +261,15 @@ export function simulate(circuit, pins = {}) {
   for (const p of circuit.parts) {
     const nets = p.pins.map(netOf);
     if (p.type === "led") {
-      const color = LED_COLORS[p.color] || LED_COLORS.red;
-      leds.push({ part: p, id: p.id, label: `LED（${color.name}）`, a: nets[0], c: nets[1], vf: color.vf, on: false, current: 0 });
+      const key = LED_COLORS[p.color] ? p.color : "red";
+      leds.push({ part: p, id: p.id, label: t("c.ledLabel", { color: colorName(key) }), a: nets[0], c: nets[1],
+        vf: LED_COLORS[key].vf, on: false, current: 0 });
     } else if (p.type === "rgbled") {
       // 共陰極：共同腳接 GND，三支腳各自是陽極；共陽極則相反
       const anode = p.common === "anode";
       for (const ch of RGB_CHANNELS) {
         const leg = nets[ch.pin], com = nets[RGB_COMMON_PIN];
-        leds.push({ part: p, id: `${p.id}:${ch.key}`, label: `RGB LED 的${ch.name}色`, rgbKey: ch.key,
+        leds.push({ part: p, id: `${p.id}:${ch.key}`, label: t("c.rgbLabel", { color: colorName(ch.color) }), rgbKey: ch.key,
           a: anode ? com : leg, c: anode ? leg : com, vf: ch.vf, on: false, current: 0 });
       }
     } else if (p.type === "pot") {
@@ -400,22 +407,18 @@ export function simulate(circuit, pins = {}) {
     const res = { id: led.id, on: led.on && led.current > 0, current: Math.max(0, led.current), brightness: 0 };
     const unplugged = p.pins.some((pt) => !pt);
     if (unplugged) {
-      if (!reportedLoose.has(p.id)) issues.push({ level: "info", part: p.id, text: `${p.type === "rgbled" ? "RGB LED" : label} 有腳沒插進麵包板。` });
+      if (!reportedLoose.has(p.id)) issues.push({ level: "info", part: p.id, text: t("c.loose", { label: p.type === "rgbled" ? "RGB LED" : label }) });
       reportedLoose.add(p.id);
       return res;
     }
     if (led.a === led.c) {
-      issues.push({ level: "warn", part: p.id, text: `${label} 兩支腳插在相通的同一排，被短路了，所以不會亮。（同一排的 5 個孔是相通的）` });
+      issues.push({ level: "warn", part: p.id, text: t("c.ledShorted", { label }) });
       return res;
     }
     // 反接：陰極電位比陽極高
     if (!led.on && led.voltage < -1.0) {
-      const how = p.type !== "rgbled"
-        ? "長腳（＋，陽極）要接 GPIO／3V3 那一側，短腳（－，陰極）接 GND。"
-        : p.common === "anode"
-          ? "這是共陽極 RGB LED：最長的共同腳要接 3V3，紅綠藍三支腳經過電阻接 GPIO（輸出低電位才會亮）。"
-          : "這是共陰極 RGB LED：最長的共同腳要接 GND，紅綠藍三支腳經過電阻接 GPIO。";
-      issues.push({ level: "warn", part: p.id, text: `${label} 接反了，所以不會亮。${how}` });
+      const how = t(p.type !== "rgbled" ? "c.howLed" : p.common === "anode" ? "c.howRgbAnode" : "c.howRgbCathode");
+      issues.push({ level: "warn", part: p.id, text: t("c.reversed", { label, how }) });
       return res;
     }
     if (!res.on) return res;
@@ -436,18 +439,19 @@ export function simulate(circuit, pins = {}) {
       const src = sourceNets.get(sourceNet);
       if (src && groundNet === -1) {
         const est = (src.v - led.vf) / resistor.ohms * 1000;
-        formula = `估算：(${src.v}V − ${led.vf}V) ÷ ${formatOhms(resistor.ohms)} ≈ ${formatCurrent(est / 1000)}`;
+        formula = t("c.formula", { v: src.v, vf: led.vf, r: formatOhms(resistor.ohms), i: formatCurrent(est / 1000) });
       }
     }
-    const measured = `模擬電流 ${formatCurrent(res.current)}` + (duty < 1 ? `（PWM 平均 ${formatCurrent(avg)}）` : "");
+    const measured = t("c.measured", { i: formatCurrent(res.current) }) + (duty < 1 ? t("c.pwmAvg", { i: formatCurrent(avg) }) : "");
+    const formulaText = formula ? t("c.sentence", { s: formula }) : "";
     if (!series && mA > GPIO_MAX_MA) {
-      issues.push({ level: "danger", part: p.id, text: `${label} 沒有接限流電阻！${measured}，超過 GPIO 建議的 ${GPIO_MAX_MA}mA，真機可能燒壞 LED 或 GPIO。請串聯 220Ω～1kΩ 的電阻。` });
+      issues.push({ level: "danger", part: p.id, text: t("c.noResistor", { label, measured, max: GPIO_MAX_MA }) });
     } else if (mA > LED_MAX_MA) {
-      issues.push({ level: "danger", part: p.id, text: `${label} 電流太大：${measured}，超過 LED 的額定 ${LED_MAX_MA}mA。請換大一點的電阻。` });
+      issues.push({ level: "danger", part: p.id, text: t("c.ledTooMuch", { label, measured, max: LED_MAX_MA }) });
     } else if (mA < 0.1) {
-      issues.push({ level: "info", part: p.id, text: `${label} 電阻太大，${measured}，LED 幾乎不亮。${formula ? formula + "。" : ""}` });
+      issues.push({ level: "info", part: p.id, text: t("c.ledTooLittle", { label, measured, formula: formulaText }).trim() });
     } else {
-      issues.push({ level: "ok", part: p.id, text: `${label} 亮了：${measured}。${formula ? formula + "。" : ""}` });
+      issues.push({ level: "ok", part: p.id, text: t("c.ledOn", { label, measured, formula: formulaText }).trim() });
     }
     return res;
   });
@@ -456,7 +460,7 @@ export function simulate(circuit, pins = {}) {
     const p = r.part;
     if (r.pot) continue;
     if (r.a !== null && r.a === r.b && partPinsOn(r.a).length > 2) {
-      issues.push({ level: "info", part: p.id, text: `電阻 ${formatOhms(r.ohms)} 兩支腳插在相通的同一排，等於沒有作用。` });
+      issues.push({ level: "info", part: p.id, text: t("c.resShorted", { r: formatOhms(r.ohms) }) });
     }
   }
 
@@ -469,7 +473,7 @@ export function simulate(circuit, pins = {}) {
     potResults[p.id] = { wiper, current: Math.max(Math.abs(s1.current), Math.abs(s2.current)) };
     const mA = potResults[p.id].current * 1000;
     if (mA > 30) {
-      issues.push({ level: "danger", part: p.id, text: `可變電阻的電流有 ${formatCurrent(potResults[p.id].current)}！旋鈕轉到底時中間腳和旁邊的腳之間幾乎是 0Ω，中間腳不要直接接 3V3 或 GND。正確接法：兩側的腳接 3V3 和 GND，中間腳接到 MCP3008 的 CH 腳。` });
+      issues.push({ level: "danger", part: p.id, text: t("c.potDanger", { i: formatCurrent(potResults[p.id].current) }) });
     }
   }
 
@@ -483,22 +487,24 @@ export function simulate(circuit, pins = {}) {
     if (info.output !== null) {
       const mA = Math.abs(r.current) * 1000;
       if (mA > 50) {
-        issues.push({ level: "danger", text: `GPIO${info.gpio}（腳位 ${info.phys}）短路：輸出 ${info.output ? "高" : "低"}電位，卻直接接到${info.output ? "低" : "高"}電位，電流約 ${formatCurrent(Math.abs(r.current))}！真機上可能燒壞 GPIO。` });
+        issues.push({ level: "danger", text: t("c.gpioShort", {
+          g: info.gpio, phys: info.phys, out: t(info.output ? "c.high" : "c.low"), other: t(info.output ? "c.low" : "c.high"),
+          i: formatCurrent(Math.abs(r.current)) }) });
       } else if (mA > GPIO_MAX_MA) {
-        issues.push({ level: "warn", text: `GPIO${info.gpio}（腳位 ${info.phys}）輸出電流 ${formatCurrent(Math.abs(r.current))}，超過建議的 ${GPIO_MAX_MA}mA。` });
+        issues.push({ level: "warn", text: t("c.gpioOver", { g: info.gpio, phys: info.phys, i: formatCurrent(Math.abs(r.current)), max: GPIO_MAX_MA }) });
       }
     } else {
       if (r.voltage > 3.6) {
-        issues.push({ level: "danger", text: `GPIO${info.gpio}（腳位 ${info.phys}）的電壓是 ${r.voltage.toFixed(1)}V！GPIO 只能承受 3.3V，接到 5V 會燒壞樹莓派。` });
+        issues.push({ level: "danger", text: t("c.gpioOverVolt", { g: info.gpio, phys: info.phys, v: r.voltage.toFixed(1) }) });
       }
       if (r.floating && info.state.mode !== "free") {
-        issues.push({ level: "warn", text: `GPIO${info.gpio}（腳位 ${info.phys}）是輸入，但沒有接到確定的電位（浮接），讀值會亂跳。可以在程式裡用上拉／下拉（例如 Button 預設的 pull_up=True），或接上拉／下拉電阻。` });
+        issues.push({ level: "warn", text: t("c.floating", { g: info.gpio, phys: info.phys }) });
       }
     }
   }
   for (const s of sources) {
     if ((s.kind === "3V3" || s.kind === "5V") && s.current > 1) {
-      issues.push({ level: "danger", text: `${s.kind} 短路了，電流約 ${formatCurrent(s.current)}！請檢查是不是直接接到 GND 或低電位。` });
+      issues.push({ level: "danger", text: t("c.supplyShort", { kind: s.kind, i: formatCurrent(s.current) }) });
     }
   }
 
@@ -546,15 +552,15 @@ function findSeries(led, resistors, partPinsOn) {
 function analyzeMcp3008({ part: p, nets }, { V, hdrNet, members, driven, issues, net3v3, net5v }) {
   const pin = (num) => nets[num - 1];
   const res = { id: p.id, ce: null, ok: false, powered: false, vref: 0, channels: [] };
-  const warn = (text, level = "warn") => issues.push({ level, part: p.id, text: `MCP3008：${text}` });
+  const warn = (text, level = "warn") => issues.push({ level, part: p.id, text: t("m.prefix", { text }) });
   if (p.pins.some((pt) => !pt)) {
-    warn("有腳沒插進麵包板。", "info");
+    warn(t("m.loose"), "info");
     return res;
   }
   // 沒有跨在中間的溝上：上下兩排同一行的腳會被麵包板連在一起
   for (let i = 0; i < 8; i++) {
     if (nets[i] === nets[15 - i]) {
-      warn("晶片要跨在麵包板中間的溝上（一排腳插 e 列、另一排插 f 列），不然上下兩排的腳會被同一行的孔連在一起。");
+      warn(t("m.gap"));
       return res;
     }
   }
@@ -562,7 +568,7 @@ function analyzeMcp3008({ part: p, nets }, { V, hdrNet, members, driven, issues,
   // 完全還沒接線：給一張對照表就好，不要一次跳出 8 個警告
   const wired = nets.some((n) => n === -1 || n === net3v3 || n === net5v || (members.get(n) || []).length > 1);
   if (!wired) {
-    warn("還沒接線。對照表：VDD（16）、VREF（15）→ 3.3V；AGND（14）、DGND（9）→ GND；CLK（13）→ GPIO11（實體 23）；DOUT（12）→ GPIO9（實體 21）；DIN（11）→ GPIO10（實體 19）；CS（10）→ GPIO8（實體 24）；CH0（1）接可變電阻的中間腳。", "info");
+    warn(t("m.unwired"), "info");
     for (let i = 0; i < 8; i++) res.channels.push({ connected: false, floating: true, voltage: null, code: null });
     return res;
   }
@@ -570,31 +576,31 @@ function analyzeMcp3008({ part: p, nets }, { V, hdrNet, members, driven, issues,
   const vdd = V(pin(16)), vref = V(pin(15));
   let ok = true;
   if (vdd > 4) {
-    warn("VDD（第 16 腳）接到 5V 了！這樣 DOUT 會輸出 5V 到 GPIO9（MISO），會燒壞樹莓派。請改接 3.3V（實體腳位 1 或 17）。", "danger");
+    warn(t("m.vdd5v"), "danger");
   } else if (!(vdd > 2.7)) {
-    warn("VDD（第 16 腳）要接 3.3V（實體腳位 1 或 17），晶片現在沒有電。");
+    warn(t("m.vddMissing"));
     ok = false;
   }
   if (!(vref > 0.5)) {
-    warn("VREF（第 15 腳）要接 3.3V。它是量測的參考電壓：輸入等於 VREF 時讀到 1023。");
+    warn(t("m.vref"));
   }
-  if (pin(14) !== -1) warn("AGND（第 14 腳）要接 GND。");
-  if (pin(9) !== -1) { warn("DGND（第 9 腳）要接 GND。"); ok = false; }
+  if (pin(14) !== -1) warn(t("m.agnd"));
+  if (pin(9) !== -1) { warn(t("m.dgnd")); ok = false; }
 
   // SPI 接線
   const dout = pin(12), din = pin(11);
   if (dout === hdrNet(19) && din === hdrNet(21)) {
-    warn("DOUT 和 DIN 接反了。DOUT（第 12 腳，晶片送出資料）要接 GPIO9／MISO（實體腳位 21）；DIN（第 11 腳，晶片接收指令）要接 GPIO10／MOSI（實體腳位 19）。");
+    warn(t("m.swapped"));
     ok = false;
   } else {
     for (const [num, name, phys, target] of [
-      [13, "CLK", 23, "GPIO11／SCLK"], [12, "DOUT", 21, "GPIO9／MISO"], [11, "DIN", 19, "GPIO10／MOSI"]]) {
-      if (pin(num) !== hdrNet(phys)) { warn(`${name}（第 ${num} 腳）要接 ${target}（實體腳位 ${phys}）。`); ok = false; }
+      [13, "CLK", 23, "GPIO11/SCLK"], [12, "DOUT", 21, "GPIO9/MISO"], [11, "DIN", 19, "GPIO10/MOSI"]]) {
+      if (pin(num) !== hdrNet(phys)) { warn(t("m.spiPin", { name, num, target, phys })); ok = false; }
     }
   }
   if (pin(10) === hdrNet(24)) res.ce = 0;
   else if (pin(10) === hdrNet(26)) res.ce = 1;
-  else { warn("CS/SHDN（第 10 腳）要接 GPIO8／CE0（實體腳位 24）。"); ok = false; }
+  else { warn(t("m.cs")); ok = false; }
 
   res.powered = vdd > 2.7;
   res.vref = Math.max(0, vref);
@@ -608,13 +614,16 @@ function analyzeMcp3008({ part: p, nets }, { V, hdrNet, members, driven, issues,
     const v = Math.max(0, V(net));
     const code = res.vref > 0.05 ? Math.max(0, Math.min(1023, Math.floor(v / res.vref * 1024 + 1e-3))) : (v > 0.01 ? 1023 : 0);
     res.channels.push({ connected, floating, voltage: floating ? null : v, code: floating ? null : code });
-    if (connected && floating) warn(`CH${i}（第 ${i + 1} 腳）接了線，但沒有接到確定的電壓，讀值會亂飄。`);
-    if (!floating && v > res.vref + 0.2 && res.vref > 0.5) warn(`CH${i} 的電壓 ${v.toFixed(2)}V 超過 VREF，讀值會停在 1023。`);
+    if (connected && floating) warn(t("m.chFloat", { ch: i, num: i + 1 }));
+    if (!floating && v > res.vref + 0.2 && res.vref > 0.5) warn(t("m.chOver", { ch: i, v: v.toFixed(2) }));
   }
   if (ok) {
     const used = res.channels.map((c, i) => [c, i]).filter(([c]) => c.connected && !c.floating);
-    const list = used.map(([c, i]) => `CH${i} ${c.voltage.toFixed(2)}V → ${c.code}（value ≈ ${(c.code / 1023).toFixed(2)}）`).join("；");
-    issues.push({ level: "ok", part: p.id, text: `MCP3008 接好了（CS 接 CE${res.ce}，程式裡用 MCP3008(channel=0${res.ce ? ", device=1" : ""}) 或 spi.open(0, ${res.ce})）。${list ? list + "。" : "還沒有接任何類比輸入（CH0～CH7）。"}` });
+    const list = used.map(([c, i]) => t("m.chItem", { ch: i, v: c.voltage.toFixed(2), code: c.code, val: (c.code / 1023).toFixed(2) }))
+      .join(t("m.chSep"));
+    issues.push({ level: "ok", part: p.id, text: t("m.ok", {
+      ce: res.ce, code: `MCP3008(channel=0${res.ce ? ", device=1" : ""})`,
+      list: list ? t("c.sentence", { s: list }) : t("m.noChannels") }) });
   }
   return res;
 }

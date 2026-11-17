@@ -11,12 +11,33 @@
 //   MCP3008 → 各通道的電壓送給伺服器，程式用 SPI 讀取時由伺服器回覆
 // ==================================================================
 
-import { simulate, LED_COLORS, RGB_CHANNELS, MCP3008_PINS, MCP3008_TARGET, formatOhms, formatCurrent } from "./circuit.js";
+import {
+  simulate, LED_COLORS, RGB_CHANNELS, MCP3008_PINS, colorName, mcp3008Target, formatOhms, formatCurrent,
+} from "./circuit.js";
 import {
   VIEW, POINTS, PART_TYPES, RESISTOR_VALUES, POT_VALUES, WIRE_COLORS, P, LAYOUT_V1_OFFSET,
   drawDefs, drawPi, drawBreadboard, drawPart, drawWire, wirePath,
-  nearestPoint, describePoint, pinsToPoints, pinPositions, snapPart, partIcon,
+  nearestPoint, describePoint, pinsToPoints, pinPositions, snapPart, partIcon, pinLabel,
 } from "./board.js";
+import { t, getLang, setLang } from "./i18n.js";
+
+// ------------------------------------------------------------------
+// 介面語言：把 index.html 裡標了 data-i18n 的文字換成目前的語言
+// 切換語言時存到瀏覽器再重新載入（電路存在伺服器上，不會不見）
+// ------------------------------------------------------------------
+function applyStaticText() {
+  document.documentElement.lang = t("page.htmlLang");
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll("[data-i18n-aria]")) el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  document.getElementById("btn-lang").lang = getLang() === "zh" ? "en" : "zh-Hant";
+}
+applyStaticText();
+document.getElementById("btn-lang").addEventListener("click", () => {
+  setLang(getLang() === "zh" ? "en" : "zh", { save: true });
+  location.reload();
+});
 
 const svg = document.getElementById("board");
 const tip = document.getElementById("tip");
@@ -144,11 +165,11 @@ function renderHints() {
   const box = document.getElementById("hints");
   const issues = [...(sim?.issues || [])].sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]);
   if (!circuit.parts.length && !circuit.wires.length) {
-    box.innerHTML = `<li class="info">從左邊的工具箱拖一個元件到麵包板上開始吧。不知道怎麼接？可以從上方的「範例電路」選一個。</li>`;
+    box.innerHTML = `<li class="info">${escapeHtml(t("hints.empty"))}</li>`;
     return;
   }
   if (!issues.length) {
-    box.innerHTML = `<li class="ok">${LEVEL_ICON.ok} 沒有發現問題。</li>`;
+    box.innerHTML = `<li class="ok">${LEVEL_ICON.ok} ${escapeHtml(t("hints.none"))}</li>`;
     return;
   }
   box.innerHTML = issues.map((i) =>
@@ -169,15 +190,15 @@ function escapeHtml(s) {
 // ------------------------------------------------------------------
 function renderProps() {
   const box = document.getElementById("props");
-  if (!selected) { box.innerHTML = `<p class="muted">點選麵包板上的元件或線，可以在這裡修改。</p>`; return; }
+  if (!selected) { box.innerHTML = `<p class="muted">${t("props.empty")}</p>`; return; }
   if (selected.kind === "wire") {
     const w = findWire(selected.id);
     if (!w) { selected = null; return renderProps(); }
-    box.innerHTML = `<h3>杜邦線</h3>
+    box.innerHTML = `<h3>${t("props.wire")}</h3>
       <p class="muted">${escapeHtml(describePoint(w.a))} ↔ ${escapeHtml(describePoint(w.b))}</p>
       <div class="swatches">${Object.entries(WIRE_COLORS).map(([k, c]) =>
-        `<button class="swatch${w.color === k ? " on" : ""}" data-wire-color="${k}" style="background:${c}" aria-label="${k}"></button>`).join("")}</div>
-      <div class="row"><button data-action="delete">刪除（Delete）</button></div>`;
+        `<button class="swatch${w.color === k ? " on" : ""}" data-wire-color="${k}" style="background:${c}" aria-label="${t(`wire.${k}`)}" title="${t(`wire.${k}`)}"></button>`).join("")}</div>
+      <div class="row"><button data-action="delete">${t("props.delete")}</button></div>`;
     return;
   }
   const p = findPart(selected.id);
@@ -186,58 +207,62 @@ function renderProps() {
   if (p.type === "led") {
     const r = sim?.leds[p.id];
     html = `<h3>LED</h3>
-      <label>顏色 <select data-prop="color">${Object.entries(LED_COLORS).map(([k, c]) =>
-        `<option value="${k}"${p.color === k ? " selected" : ""}>${c.name}色（約 ${c.vf}V）</option>`).join("")}</select></label>
-      <p class="muted">${r?.on ? `電流 ${formatCurrent(r.current)}` : "目前沒有電流"}</p>`;
+      <label>${t("props.color")} <select data-prop="color">${Object.entries(LED_COLORS).map(([k, c]) =>
+        `<option value="${k}"${p.color === k ? " selected" : ""}>${t("props.ledOption", { color: colorName(k), vf: c.vf })}</option>`).join("")}</select></label>
+      <p class="muted">${r?.on ? t("props.current", { i: formatCurrent(r.current) }) : t("props.noCurrent")}</p>`;
   } else if (p.type === "resistor") {
     const r = sim?.resistors[p.id];
-    html = `<h3>電阻</h3>
-      <label>阻值 <select data-prop="ohms">${RESISTOR_VALUES.map((v) =>
+    html = `<h3>${t("props.resistor")}</h3>
+      <label>${t("props.ohms")} <select data-prop="ohms">${RESISTOR_VALUES.map((v) =>
         `<option value="${v}"${p.ohms === v ? " selected" : ""}>${formatOhms(v)}</option>`).join("")}</select></label>
-      <p class="muted">電流 ${formatCurrent(Math.abs(r?.current || 0))}</p>`;
+      <p class="muted">${t("props.current", { i: formatCurrent(Math.abs(r?.current || 0)) })}</p>`;
   } else if (p.type === "rgbled") {
     html = `<h3>RGB LED</h3>
-      <label>種類 <select data-prop="common">
-        <option value="cathode"${p.common !== "anode" ? " selected" : ""}>共陰極（共同腳接 GND）</option>
-        <option value="anode"${p.common === "anode" ? " selected" : ""}>共陽極（共同腳接 3V3）</option></select></label>
-      <p class="muted">腳位（左到右）：紅 R、共同腳（最長）、綠 G、藍 B</p>
-      <p class="muted">${RGB_CHANNELS.map((c) => { const r = sim?.leds[`${p.id}:${c.key}`]; return `${c.name} ${r?.on ? formatCurrent(r.current) : "不亮"}`; }).join("、")}</p>`;
+      <label>${t("props.rgbKind")} <select data-prop="common">
+        <option value="cathode"${p.common !== "anode" ? " selected" : ""}>${t("props.rgbCathode")}</option>
+        <option value="anode"${p.common === "anode" ? " selected" : ""}>${t("props.rgbAnode")}</option></select></label>
+      <p class="muted">${t("props.rgbPins")}</p>
+      <p class="muted">${RGB_CHANNELS.map((c) => {
+        const r = sim?.leds[`${p.id}:${c.key}`];
+        return `${colorName(c.color)} ${r?.on ? formatCurrent(r.current) : t("props.rgbOff")}`;
+      }).join(t("props.listSep"))}</p>`;
   } else if (p.type === "pot") {
-    html = `<h3>可變電阻</h3>
-      <label>旋鈕 <input type="range" min="0" max="100" step="1" value="${Math.round((p.pos ?? 0.5) * 100)}" data-prop="pos" style="flex:1"></label>
+    html = `<h3>${t("props.pot")}</h3>
+      <label>${t("props.knob")} <input type="range" min="0" max="100" step="1" value="${Math.round((p.pos ?? 0.5) * 100)}" data-prop="pos" style="flex:1"></label>
       <p class="muted" id="pot-readout">${potReadout(p)}</p>
-      <label>總阻值 <select data-prop="ohms">${POT_VALUES.map((v) =>
+      <label>${t("props.potTotal")} <select data-prop="ohms">${POT_VALUES.map((v) =>
         `<option value="${v}"${p.ohms === v ? " selected" : ""}>${formatOhms(v)}</option>`).join("")}</select></label>
-      <p class="muted">兩側的腳接 3V3 和 GND，中間腳（滑動端）的電壓就會隨旋鈕在 0～3.3V 之間變化。也可以在麵包板上直接上下拖曳旋鈕。</p>`;
+      <p class="muted">${t("props.potHelp")}</p>`;
   } else if (p.type === "mcp3008") {
-    html = `<h3>MCP3008（10 位元類比轉數位）</h3>${mcpPanel(p)}`;
+    html = `<h3>${t("props.mcp")}</h3>${mcpPanel(p)}`;
   } else {
-    html = `<h3>按鈕</h3><p class="muted">按住按鈕＝按下。距離較遠的兩支腳（跨過中間溝的那兩支）永遠相通。</p>`;
+    html = `<h3>${t("props.button")}</h3><p class="muted">${t("props.buttonHelp")}</p>`;
   }
   const loose = (p.pins || []).filter((x) => !x).length;
-  if (loose) html += `<p class="warn-text">有 ${loose} 支腳沒插進孔（紅圈）。</p>`;
-  html += `<div class="row"><button data-action="rotate">旋轉（R）</button><button data-action="delete">刪除（Delete）</button></div>`;
+  if (loose) html += `<p class="warn-text">${t("props.loose", { n: loose })}</p>`;
+  html += `<div class="row"><button data-action="rotate">${t("props.rotate")}</button><button data-action="delete">${t("props.delete")}</button></div>`;
   box.innerHTML = html;
 }
 
 function potReadout(p) {
   const r = sim?.pots[p.id];
   const v = r?.wiper;
-  return `旋鈕 ${Math.round((p.pos ?? 0.5) * 100)}%` + (typeof v === "number" && isFinite(v) && p.pins[1] ? `，中間腳電壓 ${v.toFixed(2)} V` : "");
+  return t("props.potReadout", { pct: Math.round((p.pos ?? 0.5) * 100) }) +
+    (typeof v === "number" && isFinite(v) && p.pins[1] ? t("props.potWiper", { v: v.toFixed(2) }) : "");
 }
 
 // MCP3008 的屬性面板：接線狀態與各通道的電壓、讀值
 function mcpPanel(p) {
   const a = sim?.adc.find((x) => x.id === p.id);
   if (!a) return "";
-  let html = `<p class="${a.ok ? "muted" : "warn-text"}">${a.ok ? `接好了：CS 接 CE${a.ce}` : "接線還沒完成（看下方的電路提示）"}</p>`;
-  html += `<table class="adc"><tr><th>通道</th><th>電壓</th><th>讀值</th><th>程式讀到</th></tr>`;
+  let html = `<p class="${a.ok ? "muted" : "warn-text"}">${a.ok ? t("mcp.ok", { ce: a.ce }) : t("mcp.notOk")}</p>`;
+  html += `<table class="adc"><tr><th>${t("mcp.colCh")}</th><th>${t("mcp.colV")}</th><th>${t("mcp.colCode")}</th><th>${t("mcp.colRead")}</th></tr>`;
   a.channels.forEach((c, i) => {
-    const v = c.floating ? (c.connected ? "浮接" : "—") : `${c.voltage.toFixed(2)}V`;
+    const v = c.floating ? (c.connected ? t("mcp.floating") : "—") : `${c.voltage.toFixed(2)}V`;
     const code = c.floating ? "—" : c.code;
     html += `<tr><td>CH${i}</td><td>${v}</td><td>${code}</td><td data-adc-read="${a.ce}:${i}">${adcReadText(a.ce, i)}</td></tr>`;
   });
-  html += `</table><p class="muted">讀值 ＝ 1024 × 電壓 ÷ VREF（最大 1023）。gpiozero 的 value ＝ 讀值 ÷ 1023。</p>`;
+  html += `</table><p class="muted">${t("mcp.formula")}</p>`;
   return html;
 }
 
@@ -291,15 +316,12 @@ function rotateSelected() {
 // 工具箱
 // ------------------------------------------------------------------
 const TOOLBOX = [
-  { type: "led", color: "red", label: "LED 紅" },
-  { type: "led", color: "green", label: "LED 綠" },
-  { type: "led", color: "yellow", label: "LED 黃" },
-  { type: "led", color: "blue", label: "LED 藍" },
+  ...["red", "green", "yellow", "blue"].map((color) => ({ type: "led", color, label: t("tool.led", { color: colorName(color) }) })),
   { type: "rgbled", common: "cathode", label: "RGB LED" },
-  { type: "button", label: "按鈕" },
-  { type: "pot", ohms: 10000, pos: 0.5, label: "可變電阻" },
+  { type: "button", label: t("tool.button") },
+  { type: "pot", ohms: 10000, pos: 0.5, label: t("tool.pot") },
   { type: "mcp3008", label: "MCP3008", wide: true },
-  ...RESISTOR_VALUES.map((ohms) => ({ type: "resistor", ohms, label: `電阻 ${formatOhms(ohms)}` })),
+  ...RESISTOR_VALUES.map((ohms) => ({ type: "resistor", ohms, label: t("tool.resistor", { r: formatOhms(ohms) }) })),
 ];
 // 從工具箱拖出來時，游標抓住元件的哪個位置（相對於元件的原點）
 const GRAB = {
@@ -308,31 +330,31 @@ const GRAB = {
 };
 
 const toolbox = document.getElementById("toolbox");
-toolbox.innerHTML = TOOLBOX.map((t, i) =>
-  `<button class="tool${t.wide ? " wide" : ""}" data-tool="${i}" title="拖到麵包板上">${partIcon(t.type, t)}<span>${t.label}</span></button>`).join("");
+toolbox.innerHTML = TOOLBOX.map((tool, i) =>
+  `<button class="tool${tool.wide ? " wide" : ""}" data-tool="${i}" title="${t("tool.drag")}">${partIcon(tool.type, tool)}<span>${tool.label}</span></button>`).join("");
 
 toolbox.addEventListener("pointerdown", (e) => {
   const btn = e.target.closest("[data-tool]");
   if (!btn) return;
   e.preventDefault();
-  const t = TOOLBOX[Number(btn.dataset.tool)];
+  const tool = TOOLBOX[Number(btn.dataset.tool)];
   const pos = toSvg(e);
-  const part = { id: uid(t.type), type: t.type, x: pos.x - GRAB[t.type].x, y: pos.y - GRAB[t.type].y, rot: 0 };
-  if (t.color) part.color = t.color;
-  if (t.ohms) part.ohms = t.ohms;
-  if (t.common) part.common = t.common;
-  if (t.pos !== undefined) part.pos = t.pos;
+  const part = { id: uid(tool.type), type: tool.type, x: pos.x - GRAB[tool.type].x, y: pos.y - GRAB[tool.type].y, rot: 0 };
+  if (tool.color) part.color = tool.color;
+  if (tool.ohms) part.ohms = tool.ohms;
+  if (tool.common) part.common = tool.common;
+  if (tool.pos !== undefined) part.pos = tool.pos;
   part.pins = pinsToPoints(part);
   circuit.parts.push(part);
   selected = { kind: "part", id: part.id };
-  drag = { kind: "part", id: part.id, grabX: GRAB[t.type].x, grabY: GRAB[t.type].y, fromToolbox: true, moved: true, sx: e.clientX, sy: e.clientY };
+  drag = { kind: "part", id: part.id, grabX: GRAB[tool.type].x, grabY: GRAB[tool.type].y, fromToolbox: true, moved: true, sx: e.clientX, sy: e.clientY };
   document.body.classList.add("dragging");
   update();
 });
 
 function renderWireColors() {
   document.getElementById("wire-colors").innerHTML = Object.entries(WIRE_COLORS).map(([k, c]) =>
-    `<button class="swatch${wireColor === k ? " on" : ""}" data-color="${k}" style="background:${c}" aria-label="${k}"></button>`).join("");
+    `<button class="swatch${wireColor === k ? " on" : ""}" data-color="${k}" style="background:${c}" aria-label="${t(`wire.${k}`)}" title="${t(`wire.${k}`)}"></button>`).join("");
 }
 document.getElementById("wire-colors").addEventListener("click", (e) => {
   if (e.target.dataset.color) { wireColor = e.target.dataset.color; renderWireColors(); }
@@ -519,17 +541,17 @@ function addWire(a, b) {
 function pointTip(id) {
   let text = describePoint(id);
   const v = sim?.voltageOf(id);
-  if (typeof v === "number" && isFinite(v) && sim.used.has(id)) text += `\n電壓 ${v.toFixed(2)} V`;
+  if (typeof v === "number" && isFinite(v) && sim.used.has(id)) text += "\n" + t("tip.voltage", { v: v.toFixed(2) });
   const p = POINTS.get(id);
   if (p.kind === "header") {
     const g = Object.values(sim?.gpio || {}).find((x) => x.phys === p.phys);
     if (g) {
       const st = pins[g.gpio];
-      text += `\n${!st || st.mode === "free" ? "程式沒有使用" : st.mode === "spi" ? "SPI 使用中" : st.mode === "output" ? "程式設為輸出" : "程式設為輸入"}`;
-      if (g.mode !== "output" && g.mode !== "spi" && g.connected) text += `，讀到 ${g.floating ? "不確定（浮接）" : g.level}`;
+      text += "\n" + t(!st || st.mode === "free" ? "tip.unused" : st.mode === "spi" ? "tip.spi" : st.mode === "output" ? "tip.output" : "tip.input");
+      if (g.mode !== "output" && g.mode !== "spi" && g.connected) text += t("tip.reads", { v: g.floating ? t("tip.readsFloating") : g.level });
     }
   }
-  return text + "\n（綠圈＝與這裡相通的點）";
+  return text + "\n" + t("tip.greenCircle");
 }
 
 // 滑鼠所在位置最靠近元件的哪一支腳
@@ -547,31 +569,32 @@ function partTip(part, pos) {
   if (part.type === "mcp3008") {
     const i = nearestPin(part, pos);
     const num = i + 1;
-    let text = `MCP3008 第 ${num} 腳：${MCP3008_PINS[i]}`;
-    if (MCP3008_TARGET[num]) text += `\n要接 ${MCP3008_TARGET[num]}`;
-    else text += `\n類比輸入（0～VREF），例如接可變電阻的中間腳`;
+    let text = t("tip.mcpPin", { num, name: MCP3008_PINS[i] });
+    const target = mcp3008Target(num);
+    text += "\n" + (target ? t("tip.connectTo", { target }) : t("tip.analogIn"));
     const a = sim?.adc.find((x) => x.id === part.id);
     const c = i < 8 ? a?.channels[i] : null;
-    if (c && !c.floating) text += `\n現在 ${c.voltage.toFixed(2)}V → 讀值 ${c.code}`;
-    return text + "\n（缺口在左邊；第 1 腳在左下角）";
+    if (c && !c.floating) text += "\n" + t("tip.mcpNow", { v: c.voltage.toFixed(2), code: c.code });
+    return text + "\n" + t("tip.mcpNotch");
   }
   if (part.type === "pot") {
-    return `可變電阻 ${formatOhms(part.ohms)}\n${potReadout(part)}\n上下拖曳旋鈕、或用滑鼠滾輪調整`;
+    return `${t("tip.pot", { r: formatOhms(part.ohms) })}\n${potReadout(part)}\n${t("tip.potHow")}`;
   }
   if (part.type === "rgbled") {
     const i = pos ? nearestPin(part, pos) : -1;
-    const kind = part.common === "anode" ? "共陽極" : "共陰極";
-    return `RGB LED（${kind}）\n腳位：紅 R、共同腳（最長）、綠 G、藍 B` + (i >= 0 ? `\n這支是：${PART_TYPES.rgbled.pins[i].name}` : "");
+    const kind = t(part.common === "anode" ? "tip.rgbAnode" : "tip.rgbCathode");
+    return `${t("tip.rgb", { kind })}\n${t("tip.rgbPins")}` + (i >= 0 ? "\n" + t("tip.thisPin", { name: pinLabel("rgbled", i) }) : "");
   }
   if (part.type === "led") {
     const r = sim?.leds[part.id];
-    return `LED（${LED_COLORS[part.color]?.name}）\n長腳＋在左、短腳－在右\n${r?.on ? `電流 ${formatCurrent(r.current)}` : "沒有電流"}`;
+    return `${t("tip.led", { color: colorName(LED_COLORS[part.color] ? part.color : "red") })}\n${t("tip.ledLegs")}\n` +
+      (r?.on ? t("props.current", { i: formatCurrent(r.current) }) : t("props.noCurrent"));
   }
   if (part.type === "resistor") {
     const r = sim?.resistors[part.id];
-    return `電阻 ${formatOhms(part.ohms)}\n電流 ${formatCurrent(Math.abs(r?.current || 0))}`;
+    return `${t("tip.resistor", { r: formatOhms(part.ohms) })}\n${t("props.current", { i: formatCurrent(Math.abs(r?.current || 0)) })}`;
   }
-  return "按鈕（按住＝按下）";
+  return t("tip.button");
 }
 
 function showTip(e, text) {
@@ -682,18 +705,18 @@ document.getElementById("example-select").addEventListener("change", (e) => {
   const make = EXAMPLES[e.target.value];
   e.target.value = "";
   if (!make) return;
-  if ((circuit.parts.length || circuit.wires.length) && !confirm("要用範例電路取代目前的電路嗎？")) return;
+  if ((circuit.parts.length || circuit.wires.length) && !confirm(t("example.confirm"))) return;
   load({ version: CIRCUIT_VERSION, ...make() }); changed();
 });
 document.getElementById("btn-clear").addEventListener("click", () => {
-  if (!confirm("確定要清空麵包板嗎？")) return;
+  if (!confirm(t("clear.confirm"))) return;
   load({ parts: [], wires: [] }); changed();
 });
 document.getElementById("btn-export").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(serialize(), null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "麵包板電路.json";
+  a.download = t("export.filename");
   a.click();
   URL.revokeObjectURL(a.href);
 });
@@ -703,7 +726,7 @@ document.getElementById("file-import").addEventListener("change", async (e) => {
   e.target.value = "";
   if (!file) return;
   try { load(JSON.parse(await file.text())); changed(); }
-  catch { alert("這個檔案不是麵包板電路檔。"); }
+  catch { alert(t("import.bad")); }
 });
 
 // ------------------------------------------------------------------
@@ -786,28 +809,28 @@ function renderPrograms(list) {
   const ul = document.getElementById("programs");
   ul.innerHTML = list.length
     ? list.map((p) => `<li>pid ${p.pid ?? "?"}：python ${escapeHtml((p.argv || []).join(" "))}</li>`).join("")
-    : `<li class="muted">目前沒有程式在使用 GPIO</li>`;
+    : `<li class="muted">${t("programs.none")}</li>`;
 }
 
 const lastChange = {};
 let logEmpty = true;
 function describePin(p) {
-  if (p.mode === "free") return "未使用";
-  if (p.mode === "spi") return "SPI 使用中";
+  if (p.mode === "free") return t("pin.free");
+  if (p.mode === "spi") return t("pin.spi");
   if (p.mode === "output") {
-    if (p.pwm) return `PWM ${p.pwm[0]}Hz，工作週期 ${+p.pwm[1].toFixed(1)}%`;
-    return p.level ? "輸出高電位（3.3V）" : "輸出低電位（0V）";
+    if (p.pwm) return t("pin.pwm", { hz: p.pwm[0], duty: +p.pwm[1].toFixed(1) });
+    return t(p.level ? "pin.high" : "pin.low");
   }
-  return `輸入，讀到 ${p.level}`;
+  return t("pin.input", { v: p.level });
 }
 function addLog(time, p) {
   const box = document.getElementById("log");
   if (logEmpty) { box.innerHTML = ""; logEmpty = false; }
-  const t = new Date(time * 1000);
-  const stamp = t.toLocaleTimeString("zh-TW", { hour12: false }) + "." + String(t.getMilliseconds()).padStart(3, "0");
+  const when = new Date(time * 1000);
+  const stamp = when.toLocaleTimeString(t("page.locale"), { hour12: false }) + "." + String(when.getMilliseconds()).padStart(3, "0");
   const prev = lastChange[p.gpio];
   const row = document.createElement("div");
-  row.textContent = `${stamp}  GPIO${p.gpio} → ${describePin(p)}` + (prev ? `（前一狀態 ${(time - prev).toFixed(2)} 秒）` : "");
+  row.textContent = `${stamp}  GPIO${p.gpio} → ${describePin(p)}` + (prev ? t("log.prev", { s: (time - prev).toFixed(2) }) : "");
   if (p.mode === "output" && p.level) row.className = "on";
   box.prepend(row);
   while (box.childElementCount > 200) box.lastElementChild.remove();
@@ -823,9 +846,12 @@ function send(msg) { if (ws?.readyState === 1) ws.send(JSON.stringify(msg)); }
 function connect() {
   const status = document.getElementById("status");
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
-  ws.onopen = () => { status.textContent = "已連線"; status.className = "status ok"; lastSent = {}; lastAdc = null; };
+  ws.onopen = () => {
+    status.textContent = t("status.ok"); status.title = t("status.ok.title"); status.className = "status ok";
+    lastSent = {}; lastAdc = null;
+  };
   ws.onclose = () => {
-    status.textContent = "連線中斷，重新連線中…"; status.className = "status bad";
+    status.textContent = t("status.lost"); status.title = ""; status.className = "status bad";
     setTimeout(connect, 1000);
   };
   ws.onmessage = (ev) => {

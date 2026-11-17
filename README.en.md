@@ -15,8 +15,9 @@ pi-like-os has two parts:
 
 You do not change your Pi program. The same program also runs on a real Raspberry Pi.
 
-> **Note**: The virtual breadboard page and the messages in the Pi container are in Traditional Chinese.
-> This document gives each Chinese label with its English meaning, for example 「範例電路」 (Example circuits).
+> **Note**: The virtual breadboard page is in English or Traditional Chinese. It uses the language of your browser.
+> To change the language, click **中文** or **English** at the top right of the page.
+> Some messages in the Pi container are in Traditional Chinese only. This document gives their English meaning.
 
 ---
 
@@ -140,7 +141,7 @@ MariaDB and apache2 start after the installation. They also start each time the 
 ## 6. Run the LED program
 
 1. Open the virtual breadboard.
-2. In 「範例電路」 (Example circuits), select 「LED 閃爍（GPIO18）」 (LED blink, GPIO18).
+2. In "Example circuits", select "LED blink (GPIO18)".
    The circuit is: GPIO18 (physical pin 12) → 220Ω resistor → LED long leg. LED short leg → GND.
 3. In the Pi container, run:
 
@@ -153,7 +154,7 @@ python led.py
 4. Look at the virtual breadboard. The LED is on for 3 seconds and off for 1 second.
 5. Press `Ctrl+C` to stop the program. The program shows 「實驗已停止。」 (Experiment stopped.).
 
-If a wire is incorrect, the LED does not come on. 「電路提示」 (Circuit hints) tells you what is incorrect.
+If a wire is incorrect, the LED does not come on. "Circuit hints" tells you what is incorrect.
 
 `shared/examples/led_savetodb.py` writes the LED state into MariaDB. The top of the file has the SQL that makes the database, the user and the table.
 
@@ -172,18 +173,19 @@ The `shared` folder on your computer is `/home/pi/shared` in the Pi container.
 |---|---|
 | Add a part | Drag the part from the toolbox on the left to the breadboard. The legs of the part go into the holes |
 | Connect a jumper wire | Drag from a header pin or a hole to a different hole. Or: click the start point, then click the end point |
-| Select the wire color | Before you connect the wire, select a color in 「杜邦線」 (Jumper wire) |
+| Select the wire color | Before you connect the wire, select a color in "Jumper wires" |
 | See which holes connect | Move the mouse over a hole. Connected holes have a green circle. The page shows the voltage |
 | Move a part | Drag the part |
 | Move one end of a wire | Select the wire. Drag its end |
 | Turn a part | Select the part. Press `R` |
 | Delete | Select the part or the wire. Press `Delete` |
-| Change a resistor value or an LED color | Select the part. Change it in 「選取的元件」 (Selected part) |
+| Change a resistor value or an LED color | Select the part. Change it in "Selected part" |
 | Push a button | Hold the mouse button down on the button = pushed. Release the mouse button = released |
-| Turn the potentiometer | Drag up or down on the knob. Or use the mouse wheel. Or move the slider in 「選取的元件」 (Selected part) |
-| Load an example | Select one in 「範例電路」 (Example circuits) |
+| Turn the potentiometer | Drag up or down on the knob. Or use the mouse wheel. Or move the slider in "Selected part" |
+| Load an example | Select one in "Example circuits" |
 | Save | Not necessary. The page saves the circuit automatically |
-| Save to a file | Click 「匯出」 (Export). Click 「匯入」 (Import) to load a file |
+| Save to a file | Click "Export". Click "Import" to load a file |
+| Change the language | Click "中文" or "English" at the top right. The page remembers your selection |
 
 ### Parts
 
@@ -191,7 +193,7 @@ The breadboard has the standard size (63 columns). The Raspberry Pi is below the
 
 | Part | Description |
 |---|---|
-| LED | Red, green, yellow, blue. Select white in 「選取的元件」 (Selected part) |
+| LED | Red, green, yellow, blue. Select white in "Selected part" |
 | RGB LED | 4 legs: red R, common (longest), green G, blue B. The default is common cathode |
 | Resistor | 100Ω, 220Ω, 330Ω, 1kΩ, 10kΩ, 47kΩ, 100kΩ, 1MΩ. The color bands are the same as on real resistors |
 | Button | 4 legs. The button must go across the center gap of the breadboard |
@@ -219,7 +221,7 @@ The virtual breadboard calculates the full circuit with nodal analysis. It shows
 
 ## 9. MCP3008 and potentiometer
 
-1. In 「範例電路」 (Example circuits), select 「三段旋鈕儀表」 (Three-step knob meter). The circuit is:
+1. In "Example circuits", select "Three-step knob meter". The circuit is:
 
    | MCP3008 pin | Name | Connects to | Pi physical pin |
    |---|---|---|---|
@@ -242,7 +244,7 @@ print(pot.value)
 ```
 
 3. Turn the potentiometer on the virtual breadboard. The value in the program changes.
-4. Select the MCP3008. 「選取的元件」 (Selected part) shows the voltage and the code of each channel, and the value that the program read.
+4. Select the MCP3008. "Selected part" shows the voltage and the code of each channel, and the value that the program read.
 
 `shared/examples/meter.py` is a full example. When you turn the potentiometer, the three LEDs on GPIO17, 27 and 22 come on one by one.
 
@@ -380,10 +382,10 @@ You can also type `systemctl`. The Pi container changes it to `service` and show
 | ssh shows `Connection refused` | The Pi container is still starting. Wait 10 seconds and try again. Use `docker compose ps` to see the status |
 | Port 2222 or 8080 is already in use | In `docker-compose.yml`, change the number to the left of the colon in `ports` |
 | The program shows `lgpio.error: 'GPIO busy'` | A different program uses the same pin. Stop that program. A real Raspberry Pi does the same |
-| The MCP3008 value is always 0 | Read 「電路提示」 (Circuit hints). If the chip is not connected correctly, the program reads 0 |
+| The MCP3008 value is always 0 | Read "Circuit hints". If the chip is not connected correctly, the program reads 0 |
 | Jupyter does not open | Use the address that the terminal shows. The address contains `token=` |
 | The virtual breadboard does not update | Reload the page |
-| The page shows 「已連線」 (Connected) but the Pi container is off | This is correct. 「已連線」 shows the connection between the page and the sim container. 「執行中的程式」 (Running programs) shows the Pi programs that use GPIO |
+| The page shows "Connected" but the Pi container is off | This is correct. "Connected" shows the connection between the page and the sim container. "Running programs" shows the Pi programs that use GPIO |
 
 ---
 
@@ -408,6 +410,7 @@ Computer
 - `/proc/cpuinfo` and `/proc/device-tree/model` have the contents of a Pi 4B rev 1.5.
 - The output of `pinout` comes from the real gpiozero.
 - The virtual breadboard calculates the circuit in the browser. When the page is closed, input pins and the MCP3008 do not update.
+- All text on the page is in `sim/static/i18n.js`. To add a language, add a set of strings with the same keys. The tests make sure that all languages have the same keys.
 
 ### Develop on your computer
 
