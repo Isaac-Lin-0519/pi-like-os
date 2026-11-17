@@ -1,5 +1,9 @@
 # pi-like-os：樹莓派居家練習環境
 
+**繁體中文** | [English](README.en.md)
+
+![左邊在 ssh 裡執行 led.py 和 meter.py，右邊虛擬麵包板上的 LED 跟著亮；轉動可變電阻時，三顆 LED 依序亮起](docs/demo.gif)
+
 pi-like-os 讓你用 Mac 或 Windows 做樹莓派實驗。
 你不需要真的樹莓派，也不需要麵包板和零件。
 你只需要 Docker Desktop。
@@ -88,6 +92,8 @@ ssh pi@localhost -p 2222
 | Gradio（你自己執行） | http://localhost:7860 |
 
 只有你的電腦可以連到這些網址。同一個網路的其他電腦不能連。
+
+用 FileZilla 傳檔案：協定選 SFTP，主機 `localhost`，連接埠 `2222`，使用者 `pi`，密碼 `raspberry`。
 
 ---
 
@@ -235,6 +241,8 @@ print(pot.value)
 3. 在虛擬麵包板上轉可變電阻。程式讀到的值會改變。
 4. 選 MCP3008。「選取的元件」顯示每個通道的電壓、讀值，和程式讀到的值。
 
+`shared/examples/meter.py` 是完整的例子：轉可變電阻，GPIO17、27、22 的三顆 LED 依序亮起。
+
 spidev 的寫法也可以用。請先執行 `pip install spidev`：
 
 ```python
@@ -353,7 +361,7 @@ Pi 容器沒有 systemd。請用 `service` 指令：
 | SPI | 只有 SPI0（CE0、CE1）上的 MCP3008 |
 | I2C、序列埠 | 還沒有 |
 | `raspi-config` | 只顯示說明。`raspi-config nonint get_spi` 回傳 0（SPI 已開啟） |
-| `vcgencmd`、相機 | 還沒有 |
+| `pinctrl`、`vcgencmd`、相機 | 還沒有。`pinout` 可以用 |
 | 電路 | 只計算直流電。PWM 用平均亮度表示。零件不會燒壞，只會顯示提示 |
 | apt 套件來源 | 只有 Debian。沒有 archive.raspberrypi.com |
 | `pip install` | 顯示 `Looking in indexes: http://sim:8000/simple`。真的樹莓派是 piwheels |
@@ -364,13 +372,15 @@ Pi 容器沒有 systemd。請用 `service` 指令：
 | 問題 | 解決方法 |
 |---|---|
 | 程式顯示「連不到虛擬麵包板」 | sim 容器沒有執行。執行 `docker compose up -d` |
-| `pip install` 很慢或失敗 | 確認電腦可以上網 |
+| `pip install` 或 `apt update` 很慢或失敗 | 確認電腦的網路正常。可以換一個網路試試 |
+| `python: command not found` | 先進入虛擬環境（`workon ai`）。系統只有 `python3` |
 | ssh 顯示 `Connection refused` | Pi 容器還在開機。等 10 秒再試。用 `docker compose ps` 看狀態 |
 | 2222 或 8080 已經被使用 | 改 `docker-compose.yml` 裡 `ports` 冒號左邊的數字 |
 | 程式顯示 `lgpio.error: 'GPIO busy'` | 另一個程式在用同一支腳。停止那個程式。真的樹莓派也會這樣 |
 | MCP3008 讀到的都是 0 | 看「電路提示」。晶片沒有接好時，程式讀到 0 |
 | Jupyter 打不開 | 用終端機顯示的網址。網址裡有 `token=` |
 | 虛擬麵包板沒有更新 | 重新整理網頁 |
+| Pi 容器沒有開，網頁卻顯示「已連線」 | 這是正常的。「已連線」是網頁和 sim 容器的連線。「執行中的程式」才顯示正在使用 GPIO 的 Pi 程式 |
 
 ---
 
