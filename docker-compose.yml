@@ -19,7 +19,7 @@ services:
   # 「樹莓派」：Debian trixie，偽裝成 Raspberry Pi 4 Model B rev 1.5
   # ----------------------------------------------------------------
   pi:
-    image: ghcr.io/isaac-lin-0519/pi-like-os/pi:0.1.0
+    image: ghcr.io/isaac-lin-0519/pi-like-os/pi:0.2.0
     hostname: raspberrypi
     restart: on-failure           # sudo reboot 會讓容器以代碼 1 結束，docker 再自動開機
     stop_grace_period: 30s        # 關機時給 MariaDB 足夠時間正常關閉
@@ -53,7 +53,7 @@ services:
   # 虛擬麵包板伺服器：網頁、腳位橋接、pip 套件來源（模擬版 lgpio）
   # ----------------------------------------------------------------
   sim:
-    image: ghcr.io/isaac-lin-0519/pi-like-os/sim:0.1.0
+    image: ghcr.io/isaac-lin-0519/pi-like-os/sim:0.2.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8000"     # 虛擬麵包板網頁
