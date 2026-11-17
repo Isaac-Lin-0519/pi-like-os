@@ -39,6 +39,6 @@ git commit -q -m "發布 $version"
 git tag -a "v$version" -m "pi-like-os $version"
 
 echo
-echo "完成：commit 並加上標籤 v$version。請執行下面的指令推送："
+echo "完成：commit 並加上標籤 v${version}。請執行下面的指令推送："
 echo
 echo "  git push && git push origin v$version"
